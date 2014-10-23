@@ -1,0 +1,321 @@
+<?php
+
+define("UC_PAYFUL_BASEDIR", dirname(__FILE__)."/");
+
+function uc_payful_debug($contents) {
+	if (is_array($contents) || is_object($contents))
+		$contents = json_encode($contents);
+	watchdog("Payful", $contents);
+}
+
+function uc_payful_menu() {
+	$items['cart/payful/complete'] = array(
+		'title' => 'Payment complete',
+		'page callback' => 'uc_payful_complete',
+		'access callback' => 'uc_payful_completion_access',
+		'type' => MENU_CALLBACK,
+		'file' => 'uc_payful.pages.inc',
+	);
+	$items['cart/payful/failed'] = array(
+		'title' => 'Payment failed',
+		'page callback' => 'uc_payful_failed',
+		'access callback' => 'uc_payful_completion_access',
+		'type' => MENU_CALLBACK,
+		'file' => 'uc_payful.pages.inc',
+	);
+
+	$items['cart/payful/start'] = array(
+		'title' => 'Payment Start',
+		'page callback' => 'uc_payful_start',
+		'access callback' => 'uc_payful_completion_access',
+		'type' => MENU_CALLBACK,
+		'file' => 'uc_payful.pages.inc',
+	);
+
+	return $items;
+}
+
+function uc_payful_completion_access() {
+	return TRUE;
+}
+
+function uc_payful_ucga_display() {
+	if (arg(0) == 'cart' && arg(1) == 'payful' && arg(2) == 'complete') {
+		return TRUE;
+	}
+}
+
+function uc_payful_form_alter(&$form, &$form_state, $form_id) {
+	if ($form_id == 'uc_cart_checkout_review_form' && ($order_id = intval($_SESSION['cart_order'])) > 0) {
+		$order = uc_order_load($order_id);
+
+		if ($order->payment_method == 'payful') {
+			unset($form['actions']['submit']);
+			$formToGet = drupal_get_form('uc_payful_form', $order);
+			$form['#suffix'] = render($formToGet) ;
+		}
+	}
+}
+
+function uc_payful_uc_payment_method() {
+	global $payfulGateway;
+
+	$path = base_path() . drupal_get_path('module', 'uc_payful');
+	$methods[] = array(
+		'id' => 'payful',
+		'name' => 'Payful',
+		'title' => $payfulGateway->title,
+		'review' => $payfulGateway->title,
+		'desc' => $payfulGateway->description,
+		'callback' => 'uc_payment_method_payful',
+		'weight' => 3,
+		'checkout' => $payfulGateway->service->isCurrencySupported(variable_get("uc_currency_code", "USD")) && $payfulGateway->service->hasKeys(),
+		'no_gateway' => TRUE,
+	);
+	return $methods;
+}
+
+function payful_get_option($option_val, $default = false){
+	return variable_get('uc_payful_'.$option_val, $default);
+}
+
+function payful_get_merchants() {
+	$merchants = array("Quadriga", "Virtex");
+	foreach($merchants as $merchant){
+		require_once( UC_PAYFUL_BASEDIR . 'lib/'.strtolower($merchant).'-lib.php' );
+		$className = $merchant."_Lib";
+		$ret[$merchant] = $className::$title;
+	}
+	return $ret;
+}
+
+function payful_get_fields_for_service($_service){
+	require_once( UC_PAYFUL_BASEDIR . 'lib/'.strtolower($_service).'-lib.php' );
+	$className = $_service."_Lib";
+	$service = new $className("");
+	$classSlug = $service->getSlug();
+
+	$isCurrent = payful_get_option("merchant_service") == $_service;
+
+	$merchant_key = payful_get_option($classSlug."_"."merchant_key");
+
+	$service->changeKeys($merchant_key);
+	$isCurrencySupported = $service->isCurrencySupported(variable_get("uc_currency_code", "USD"));
+
+	$fields = array();
+		
+	$fields = array_merge($fields, $service->configFields());
+
+	$fields = array_merge($fields, array(
+		'title' => array(
+			'title' => t( 'Title' ),
+			'type' => 'text',
+			'desc_tip'    => true,
+			'description' => t( 'This controls the title which the user sees during checkout.' ),
+			'default' => t( "Bitcoin" ),
+		),
+		'custom_spread' => array(
+			'title' => t( 'Custom Spread' ),
+			'type' => 'text',
+			'desc_tip'    => true,
+			'description' => t( 'Increase or decrease the Bitcoin conversion rate. Example: To add an extra 2% spread, set this to 102%.' ),
+			'default' => "100",
+		),
+	));
+
+	$parsedFields = array();
+	foreach($fields as $key => $field) {
+		$key = $service->getSlug()."_".$key;
+		$parsedFields[$key] = $field;
+	}
+
+	$message = "";
+
+	if(!$isCurrencySupported){
+		ob_start()
+		?>
+		<div class="messages error"><h2 class="element-invisible">Error message</h2><strong><?php echo t( 'Service Unavailable' ); ?></strong>: <?php echo t( $service->getTitle().' does not support your store currency. Please switch to '.$service->supportedCurrenciesString().' to accept payments via '.$service->getTitle().'.' ); ?></div>
+		<?php
+		$message .= ob_get_contents();
+		ob_end_clean();
+	} else if($isCurrent && !$service->hasKeys()){
+		ob_start()
+		?>
+		<div class="messages error"><h2 class="element-invisible">Error message</h2><strong><?php echo t( 'Service Disabled' ); ?></strong>: <?php echo t( $service->getTitle().' won\'t work until you enter the API keys.' ); ?></div>
+		<?php
+		$message .= ob_get_contents();
+		ob_end_clean();
+	} else if($isCurrent && $service->has_merchant_page()){
+		ob_start()
+		?>
+		<div class="messages status"><h2 class="element-invisible">Status message</h2><?php echo t('Remember to update the Callback URL address at '.$service->getTitle().' in your <a href="'.$service->merchantPageURL.'" target="_blank">'.$service->merchantPageLabel.' page</a>.'); ?><br /><code><?php echo payful_notify_url(); ?></code></div>
+		<?php
+		$message .= ob_get_contents();
+		ob_end_clean();
+	}
+
+	$parsedFields = array_merge(array(
+		$service->getSlug() => array(
+			'title'       => t( $service->getTitle() ),
+			'type'        => 'title',
+			'description' => $message,
+		),
+	), $parsedFields);
+
+	return $parsedFields;
+}
+
+function payful_field_value($element, $input = FALSE, $form_state = array()) {
+	if ($input === FALSE) {
+		$fieldname = end($element["#parents"]);
+
+		$prevVal = variable_get($fieldname, false);
+
+		$default = isset($element['#default_value']) ? $element['#default_value'] : "";
+		
+		return $prevVal !== false ? $prevVal : $default;
+	}
+}
+
+function payful_notify_url(){
+	return url('cart/payful/complete', array('absolute' => TRUE)) . '/index.php';
+}
+
+function uc_payment_method_payful($op, &$arg1) {
+	switch ($op) {
+		case 'cart-details':
+			return;
+
+		case 'cart-process':
+			return;
+
+		case 'settings':
+
+			$fields = array();
+
+			$merchantsIDs = array_keys(payful_get_merchants());
+
+			$parsedFields = array(
+				'merchant_service' => array(
+					'title' => t('Service'),
+					'type' => 'select',
+					'desc_tip'    => true,
+					'description' => t( 'Choose the service you want to use' ),
+					'default' => '',
+					"options" => payful_get_merchants(),
+				),
+			);
+			foreach ($merchantsIDs as $service) {
+				$parsedFields = array_merge($parsedFields, payful_get_fields_for_service($service));
+			}
+
+			$form_fields = $parsedFields;
+
+			//var_dump($form_fields);
+
+			$prefix = "uc_payful_";
+			$translatedForm = array();
+			foreach($form_fields as $key => $data){
+				$newField = array();
+				foreach($data as $prop => $val){
+					switch ($prop) {
+						case 'title':
+						case 'type':
+						case 'description':
+						case 'options':
+							$prop = "#".$prop;
+							break;
+						
+						case 'default':
+							$prop = "#default_value";
+							break;
+
+						case 'desc_tip':
+							continue 2;
+							break;
+
+						default:
+							# code...
+							break;
+					}
+					$newField[$prop] = $val;
+				}
+				$newField["#value_callback"] = "payful_field_value";
+				if($newField["#type"] == "title"){
+					$newField["#type"] = "container";
+					$newField["#prefix"] = "<h4 class='settings-sub-title'>".$newField["#title"]."</h4>";
+					if(!empty($newField["#description"]))
+						$newField["#prefix"] .= "<p>".$newField["#description"]."</p>";
+				}
+				if($newField["#type"] == "text"){
+					$newField["#type"] = "textfield";
+				}
+				$translatedForm[$prefix.$key] = $newField;
+			}
+
+			$translatedForm['#suffix'] = '<script src="'.url("<front>", array("absolute" => TRUE)).'/modules/ubercart/uc_payful/js/payful-admin.js" type="text/javascript"></script>'; 
+			//var_dump($translatedForm);
+			return $translatedForm;
+	}
+}
+
+class Payful_Gateway_Handler {
+	var $service;
+	var $merchant_key;
+	var $description;
+	var $title;
+	public function __construct() {
+		require_once( UC_PAYFUL_BASEDIR . 'lib/base.php' );
+		$merchant = payful_get_option("merchant_service");
+		if(empty($merchant)){
+			$this->service = new Null_Lib("");
+		} else {
+			require_once( UC_PAYFUL_BASEDIR . 'lib/'.strtolower($merchant).'-lib.php' );
+			$className = $merchant."_Lib";
+			$this->service = new $className($this->merchant_key);
+		}
+
+		//$this->enabled 		   = payful_get_option("enabled");
+		$this->merchant_key    = payful_get_option( $this->service->getSlug()."_".'merchant_key' );
+		$this->description     = payful_get_option( $this->service->getSlug()."_".'description' );
+		$this->title           = payful_get_option( $this->service->getSlug()."_".'title' );
+
+		$this->service->changeKeys($this->merchant_key);
+	}
+}
+
+global $payfulGateway;
+$payfulGateway = new Payful_Gateway_Handler();
+
+
+function uc_payful_form($form_id, $form_state) {
+	global $payfulGateway;
+
+	$order = $form_state['build_info']['args'][0];
+
+	$context = array(
+		'revision' => 'formatted-original',
+		'location' => 'Payful-form',
+	);
+
+	$options = array(
+		'sign' => FALSE,
+		'dec' => '.',
+		'thou' => FALSE,
+	);
+	
+	$form['#action'] = url('cart/payful/start', array('absolute' => TRUE)) . '/index.php';;
+	$form['#method'] = 'POST';
+
+	$form["order_id"] = array('#type' => 'hidden', '#value' => $order->order_id);
+
+	$form['actions'] = array(
+		'#type' => 'actions',
+		'back' => array(
+			'#type' => 'submit',
+			'#value' => t('Submit Order'),
+		),
+	);
+
+	return $form;
+}

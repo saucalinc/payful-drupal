@@ -1,0 +1,11 @@
+name = Payful
+description = Payful allows you to receive payments in bitcoin using several tools
+dependencies[] = uc_payment
+package = Ubercart - payment
+core = 7.x
+php = 5.0
+
+version = "7.x-3.5"
+core = "7.x"
+project = "uc_payful"
+project status url = http://www.payful.co

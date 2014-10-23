@@ -1,7 +1,7 @@
 <?php
 
-function uc_quadriga_schema() {
-  $schema['uc_payment_quadriga'] = array(
+function uc_payful_schema() {
+  $schema['uc_payment_payful'] = array(
     'description' => t('Transaction table'),
     'fields' => array(
       'txid' => array(
@@ -30,7 +30,7 @@ function uc_quadriga_schema() {
   );
   return $schema;
 }
-function uc_quadriga_uninstall() {
-  db_query("DELETE FROM {variable} WHERE name LIKE 'uc_quadriga_%%'");
+function uc_payful_uninstall() {
+  db_query("DELETE FROM {variable} WHERE name LIKE 'uc_payful_%%'");
 }
 
