@@ -38,7 +38,7 @@ class Virtex_Lib extends Payful_Gateway {
 
 	}
 
-	protected $ignoreParamsDef = array("currency");
+	protected $ignoreParamsDef = array("currency", "callback_url");
 	protected $filterParamsDef = array();
 	protected $translateParamsDef = array(
 		"description" => "name",

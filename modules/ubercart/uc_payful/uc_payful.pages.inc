@@ -57,6 +57,7 @@ function uc_payful_start($cart_id = 0){
 		"client_order_id" => $order->order_id,
 		'cancel_url' => url('cart/checkout', array('absolute' => TRUE)),
 		'return_url' => url('cart/checkout/complete', array('absolute' => TRUE)),
+		'callback_url' => payful_notify_url(),
 		'customer_email' => $order->primary_email,
 		'customer_name' => $order->billing_first_name . ' ' . $order->billing_last_name,
 	);

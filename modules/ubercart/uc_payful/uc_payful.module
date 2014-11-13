@@ -80,7 +80,7 @@ function payful_get_option($option_val, $default = false){
 }
 
 function payful_get_merchants() {
-	$merchants = array("Quadriga", "Virtex");
+	$merchants = array("Quadriga", "Virtex", "Payful");
 	foreach($merchants as $merchant){
 		require_once( UC_PAYFUL_BASEDIR . 'lib/'.strtolower($merchant).'-lib.php' );
 		$className = $merchant."_Lib";

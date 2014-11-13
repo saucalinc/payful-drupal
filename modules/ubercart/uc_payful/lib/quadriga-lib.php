@@ -44,7 +44,7 @@ class Quadriga_Lib extends Payful_Gateway {
 	}
 
 	protected $translateParamsDef = array();
-	protected $ignoreParamsDef = array('cancel_url', 'return_url', 'customer_email', 'customer_name', "description", "shipping_price", "tax_price");
+	protected $ignoreParamsDef = array('cancel_url', 'return_url', 'customer_email', 'customer_name', "description", "shipping_price", "tax_price", "callback_url");
 	protected $filterParamsDef = array(
 		"currency" => "strtolower"
 	);
