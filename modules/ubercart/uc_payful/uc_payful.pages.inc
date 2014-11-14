@@ -25,7 +25,7 @@ function uc_payful_complete($cart_id = 0) {
 	uc_payment_enter($order->order_id, 'payful', $order->order_total, 0, NULL, $comment);
 	uc_cart_complete_sale($order);
 
-	$this->service->confirmTransaction();
+	$payfulGateway->service->confirmTransaction();
 	die();
 }
 
