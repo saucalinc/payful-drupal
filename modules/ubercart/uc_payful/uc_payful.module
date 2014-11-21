@@ -287,6 +287,17 @@ class Payful_Gateway_Handler {
 global $payfulGateway;
 $payfulGateway = new Payful_Gateway_Handler();
 
+function payful_maybe_apply_spread($amount){
+	global $payfulGateway;
+	$classSlug = $payfulGateway->service->getSlug();
+	$spread = payful_get_option($classSlug."_"."custom_spread", 100);
+
+	if(!empty($spread) && $spread != 100) {
+		$amount = round($amount * ($spread / 100), 2);
+	}
+	return $amount;
+}
+
 
 function uc_payful_form($form_id, $form_state) {
 	global $payfulGateway;

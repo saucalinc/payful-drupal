@@ -13,7 +13,7 @@ function uc_payful_complete($cart_id = 0) {
 	}
 
 	$order = uc_order_load( $_IPNDATA["client_order_id"] );
-	$order_hash = $payfulGateway->service->get_payful_hash($order->order_id, $order->order_total);
+	$order_hash = $payfulGateway->service->get_payful_hash($order->order_id, payful_maybe_apply_spread($order->order_total));
 
 	if(!isset($_IPNDATA["payful_hash"]) || (isset($_IPNDATA["payful_hash"]) && $_IPNDATA["payful_hash"] != $order_hash)){
 		uc_payful_debug( 'Authentication failed. Bad hash. <code>'.$rawData.'</code>' );
@@ -51,7 +51,7 @@ function uc_payful_start($cart_id = 0){
 	$params = array(
 		"description" => variable_get("uc_store_name", "Ubercart") . " Order",
 		"currency" => variable_get("uc_currency_code", "USD"),
-		"amount" => $order->order_total,
+		"amount" => payful_maybe_apply_spread($order->order_total),
 		"shipping_price" => 0,
 		"tax_price" => 0,
 		"client_order_id" => $order->order_id,
