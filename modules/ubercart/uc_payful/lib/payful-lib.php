@@ -15,7 +15,7 @@ class Payful_Lib extends Payful_Gateway {
 
 	public function createTransaction($post = false) {
 
-		$url  ="http://merchants.payful.bitcoinlabs.saucal.com/api/transaction/create";
+		$url  ="http://merchants.payful.co/api/transaction/create";
 
 		$response = $this->curl_it($url, array_merge(
 			array("address" => $this->merchant_key),
