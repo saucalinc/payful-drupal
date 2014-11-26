@@ -64,7 +64,7 @@ function uc_payful_start($cart_id = 0){
 
 	$url = $payfulGateway->service->createTransaction($params);
 	if($url !== false){
-		uc_cart_empty(uc_cart_get_id());
+		//uc_cart_empty(uc_cart_get_id());
 		drupal_goto($url);
 	} else
 		drupal_goto(url("<front>"));
