@@ -115,7 +115,7 @@ function payful_get_fields_for_service($_service){
 			'default' => t( "Bitcoin" ),
 		),
 		'custom_spread' => array(
-			'title' => t( 'Custom Spread <i>in %</i>' ),
+			'title' => t( 'Custom Spread in %' ),
 			'type' => 'text',
 			'desc_tip'    => true,
 			'description' => t( 'Increase or decrease the Bitcoin conversion rate. Example: To add an extra 2% spread, set this to 102%.' ),
